@@ -46,9 +46,9 @@ void exhaustive_search_solution(vector<Rectangle>& pieces, int W, int N){
 int main() {
     int W, N, n_units, p, q;
     cin >> W >> N;
-    vector<Rectangle> pieces;
-    while (cin >> n_units) {
-        cin >> p >> q;
+    vector<Rectangle> pieces(N);
+    for (int i = 0; i < N; i += n_units) {
+        cin >> n_units >> p >> q;
         pieces.push_back({p, q});
     }
     exhaustive_search_solution(pieces, W, N);
