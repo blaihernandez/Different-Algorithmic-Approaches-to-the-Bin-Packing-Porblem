@@ -14,7 +14,7 @@ struct Coordinates{
     int lower_right;
 };
 
-
+/*soc molt guapo*/
 void insert_piece(Rectangle r, bool reverse /*fabric roll*/){
     /*aquí podem fer la feina d'inserir la peça, guardar les coordenades
     i, si cal, afegir una o més fil.les al rotlle de tel.la*/
