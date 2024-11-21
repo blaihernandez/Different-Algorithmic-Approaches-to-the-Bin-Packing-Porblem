@@ -4,7 +4,8 @@
 
 using namespace std;
 
-struct Rectangle {
+struct Rectangles {
+    int n; /* nombre de rectangles de tipus (width x height)*/
     int width;
     int height;
 };
@@ -14,42 +15,66 @@ struct Coordinates{
     int lower_right;
 };
 
+int N, W;
+vector<Rectangles> Pieces;
 
-void insert_piece(Rectangle r, bool reverse /*fabric roll*/){
+void insert_piece(Rectangles r, bool reverse){
     /*aquí podem fer la feina d'inserir la peça, guardar les coordenades
     i, si cal, afegir una o més fil.les al rotlle de tel.la*/
 }
 
+/* mira si el rectangle r cap al final de la línia */
+bool it_fits(Rectangles r, int i, int j) {
+    /*if reverse r.w = r.h */
+}
 
-void exhaustive_search_solution_recursive(vector<Rectangle>& pieces, int W, int N, int used_pieces, int current_L /*fabric_roll*/){
-    if (used_pieces == N) return; /* mirem si la longitud actual és millor que la optima que haguem trobat*/;
+bool it_fits_reverse(){
+}
 
-    for (Rectangle r : pieces){
-        insert_piece(r, false /*fabric_roll*/);
-        exhaustive_search_solution_recursive(pieces, W, N, used_pieces + 1, current_L /*fabric_roll*/);
-        insert_piece(r, true);
-        /*hem d'eliminar la última peça que hem posat del dret per posar-la del revès*/
-        exhaustive_search_solution_recursive(pieces, W, N, used_pieces + 1, current_L /*fabric_roll*/);
+bool insert_piece_reverse(){
+}
+
+void set_new_coordinates(int& i, int& j, Rectangles r){
+}
+
+void exhaustive_search_solution_recursive(int i, int j, vector<Coordinates>& p_sol, 
+                                          int current_L, vector<Coordinates>& best_sol, 
+                                          int best_L, int counter){
+    if (counter == N) return; /* mirem si la longitud actual és millor que la optima que haguem trobat*/;
+    if (current_L < best_L){
+        for (Rectangles r : Pieces){
+            if (it_fits(r, i, j)){
+                insert_piece(r);
+                set_new_coordinates(i, j, r);
+                exhaustive_search_solution_recursive(i, j, p_sol, current_L, best_sol, best_L, counter + 1);
+            }
+            if (it_fits_reverse()){
+                insert_piece_reverse();
+                exhaustive_search_solution_recursive();
+            }
+        }       
     }
 }
 
 
-void exhaustive_search_solution(vector<Rectangle>& pieces, int W, int N){
+void exhaustive_search_solution(){
     /* com ho fem per retornar??? necessitem la longitud i les coordenades*/
-    int used_pieces = 0;
-    int fabric_roll; /*ho guardem en una matriu???? o potser millor crear una struct????*/
+    vector<Coordinates> p_sol(N), best_sol(N); /*ho guardem en una matriu???? o potser millor crear una struct????*/
     int current_L = 0;
-    exhaustive_search_solution_recursive(pieces, W, N, used_pieces, current_L /*fabric_roll*/);
+    int best_L = INT_MAX;
+    int counter = 0;
+    int i = 0; int j = 0;
+    vector<int> left_rectangles(Pieces.size());
+    exhaustive_search_solution_recursive(i, j, p_sol, current_L, best_sol, best_L, counter);
 }
 
 
 int main() {
-    int W, N, n_units, p, q;
+    int n_units, p, q;
     cin >> W >> N;
-    vector<Rectangle> pieces;
     while (cin >> n_units) {
         cin >> p >> q;
-        pieces.push_back({p, q});
+        Pieces.push_back({n_units, p, q});
     }
-    exhaustive_search_solution(pieces, W, N);
+    exhaustive_search_solution();
 }
