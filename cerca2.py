@@ -1,0 +1,111 @@
+#include <iostream>
+#include <vector>
+#include <string>
+
+using namespace std;
+
+struct Order {
+    int n; /* nombre de Order de tipus (width x height)*/
+    int width;
+    int height;
+};
+
+struct Coordinates{
+    int x;
+    int y;
+};
+
+typedef vector< vector<int> > FR;
+int N, W;
+vector<Order> Orders;
+
+
+// insereix la peça de 'Order' a la coordenada actual coord (del dret o del revès).
+// Marca fabric_roll indicant que allà hem posat la peça
+int insert_new_piece(Order order, FR& fabric_roll, Coordinates coord, bool reverse){
+}
+
+// mira si la nova peça cap a la coordenada actual (li podem dir que provi la peça del revès)
+bool piece_fits(FR& fabric_roll, Order r, Coordinates coord, bool reverse) {
+}
+
+// retorna les noves coordenades on provar de posar una peça
+Coordinates set_new_coordinates(FR& fabric_roll, Coordinates coord){
+}
+
+// desmarca la matriu 'fabric_roll' i n'elimina la peça 'Order' (del dret o del revès)
+// de les coordenades coord.
+void delete_piece(FR fabric_roll, Order order, Coordinates coord, bool reverse){
+}
+
+
+bool exhaustive_search_solution_recursive(FR& fabric_roll, int count, Coordinates current_coord, 
+                                        int current_L, int best_L ){
+    if (count == N) {
+        if (current_L < best_L) best_L = current_L;
+        // find_best_positions
+    }
+
+    else if (current_L < best_L){
+        for (Order order : Orders){
+            for (int q = 0; q < order.n; ++q) {
+                // mirem si la posició on volem col.locar la peça està ocupada
+                if (fabric_roll[current_coord.x][current_coord.y] == 0) {
+                    // si no està ocupada:
+                    if (piece_fits(fabric_roll, order, current_coord, false)) {
+                        // la posem del dret
+                        insert_new_piece(order, fabric_roll, current_coord, false);
+                        current_coord = set_new_coordinates(fabric_roll, current_coord); 
+                        exhaustive_search_solution_recursive(fabric_roll, count + 1, current_coord, current_L, best_L);
+                        delete_piece(fabric_roll, order, current_coord, false); // eliminem la peça per trobar una nova combinació
+                    }
+                    if (piece_fits(fabric_roll, order, current_coord, true)){
+                        // la posem del revès
+                        insert_new_piece(order, fabric_roll, current_coord, true);
+                        current_coord = set_new_coordinates(fabric_roll, current_coord);
+                        exhaustive_search_solution_recursive(fabric_roll, count + 1, current_coord, current_L, best_L);
+                        delete_piece(fabric_roll, order, current_coord, true); // eliminem la peça per trobar una nova combinació
+                    }
+                }
+                else {
+                    // si està ocupada busquem una nova coordenada on intentar ficar la peça
+                    current_coord = set_new_coordinates(fabric_roll, current_coord);
+                    exhaustive_search_solution_recursive(fabric_roll, count, current_coord, current_L, best_L);
+                }
+            }
+        }
+    }
+}
+
+void exhaustive_search_solution(){
+    /* com ho fem per retornar??? necessitem la longitud i les coordenades*/
+    exhaustive_search_solution();
+}
+
+
+int main() {
+    int n_units, p, q, L_max;
+    cin >> W >> N;
+    L_max = 0;
+    while (cin >> n_units) {
+        cin >> p >> q;
+        Orders.push_back({n_units, p, q});
+        L_max += q;
+    }
+    exhaustive_search_solution();
+}
+
+
+/*
+
+PROBLEMES:
+    - Fer-ho amb matriu és lent (col.locar, eliminar...)
+        --> una manera d'arreglar-ho és només guardar la posició ul i lr però no estic segur
+            que es pugui fer ni que sigui molt millor
+    - Determinar les noves coordenades, tant quan podem posar la peça com quan no
+    - Guardar les posicions d'allà on col.loquem les peces a la millor solució.
+    - On guardem les files que portem i com les afegim, si cal??
+        --> Quan afegim fil.les podem mirar si ens passem de la fita superior que vam trobar. És una millora 
+            d'eficiència i simplifica el codi.
+
+*/
