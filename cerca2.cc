@@ -15,32 +15,25 @@ struct Coordinates{
     int y;
 };
 
-struct Position{
-    Coordinates ul;
-    Coordinates br;
-};
-
-typedef vector<vector<bool>> FR;
+typedef vector< vector<bool> > FR;
 int N, W;
 vector<Order> Orders;
 
 
 // insereix la peça de 'Order' a la coordenada actual coord (del dret o del revès).
 // Marca fabric_roll indicant que allà hem posat la peça
-void insert_new_piece(vector<Position> p_sol, Order order, FR& fabric_roll, Coordinates coord, int c, bool reverse){
-    int x = coord.x; int y = coord.y;
-    int w = order.width; int h = order.height;
-    if (reverse) w, h = h, w;
-    p_sol[c] = Position{Coordinates{x, y}, Coordinates{x + w, y + h}};
-    for (int i = x; i < x + w; ++i){
-        for(int j = y; j < y + h; ++j){
-            fabric_roll[i][j] = true;
-        }
-    }
+void insert_new_piece(Order order, FR& fabric_roll, Coordinates coord, bool reverse) {
 }
 
 // mira si la nova peça cap a la coordenada actual (li podem dir que provi la peça del revès)
-bool piece_fits(FR& fabric_roll, Order r, Coordinates coord, bool reverse) {
+bool piece_fits(FR& fabric_roll, Order order, Coordinates coord, bool reverse) {
+    int x = coord.x; int y = coord.y;
+    int w = order.width; int h = order.height;
+    if (reverse) w, h = h, w;
+    for (int i = y; i < y + h; ++i){
+        for (int j = x; j < x + w; ++j) if (fabric_roll[i][j] or j >= W) return false;
+    return true;
+    }
 }
 
 // retorna les noves coordenades on provar de posar una peça
@@ -50,11 +43,21 @@ Coordinates set_new_coordinates(FR& fabric_roll, Coordinates coord){
 // desmarca la matriu 'fabric_roll' i n'elimina la peça 'Order' (del dret o del revès)
 // de les coordenades coord.
 void delete_piece(FR fabric_roll, Order order, Coordinates coord, bool reverse){
+    
+}
+
+// ordena les comandes segons l'area del rectangle
+vector<Order> sort_orders(vector<Order>& Orders){
+    std::sort(Orders.begin(), Orders.end(), [](const Order& a, const Order& b) {
+        int areaA = a.width * a.height;
+        int areaB = b.width * b.height;
+        return areaA > areaB; // Descending order
+    });
 }
 
 
 void exhaustive_search_solution_recursive(FR& fabric_roll, int count, Coordinates current_coord, 
-                                        int current_L, int best_L, vector<Position> p_sol){
+                                        int current_L, int best_L ){
     if (count == N) {
         if (current_L < best_L) best_L = current_L;
         // find_best_positions
@@ -68,20 +71,16 @@ void exhaustive_search_solution_recursive(FR& fabric_roll, int count, Coordinate
                     // si no està ocupada:
                     if (piece_fits(fabric_roll, order, current_coord, false)) {
                         // la posem del dret
-                        insert_new_piece(p_sol, order, fabric_roll, current_coord, count, false);
-                        current_L = max(current_L, current_coord.y + order.height + 1);
-                        exhaustive_search_solution_recursive(fabric_roll, count + 1,
-                                                             set_new_coordinates(fabric_roll, current_coord),
-                                                             current_L, best_L, p_sol);
+                        insert_new_piece(order, fabric_roll, current_coord, false);
+                        current_coord = set_new_coordinates(fabric_roll, current_coord); 
+                        exhaustive_search_solution_recursive(fabric_roll, count + 1, current_coord, current_L, best_L);
                         delete_piece(fabric_roll, order, current_coord, false); // eliminem la peça per trobar una nova combinació
                     }
                     if (order.width != order.height && piece_fits(fabric_roll, order, current_coord, true)){
                         // la posem del revès
-                        insert_new_piece(p_sol, order, fabric_roll, current_coord, count, true);
-                        current_L = max(current_L, current_coord.y + order.width + 1);
-                        exhaustive_search_solution_recursive(fabric_roll, count + 1,
-                                                             set_new_coordinates(fabric_roll, current_coord),
-                                                             current_L, best_L, p_sol);
+                        insert_new_piece(order, fabric_roll, current_coord, true);
+                        current_coord = set_new_coordinates(fabric_roll, current_coord);
+                        exhaustive_search_solution_recursive(fabric_roll, count + 1, current_coord, current_L, best_L);
                         delete_piece(fabric_roll, order, current_coord, true); // eliminem la peça per trobar una nova combinació
                     }
                 }
@@ -110,12 +109,12 @@ int main() {
         Orders.push_back(Order{n_units, p, q});
         L_max += q;
     }
+    sort_orders(Orders);
     exhaustive_search_solution();
 }
 
 
 /*
-
 PROBLEMES:
     - Fer-ho amb matriu és lent (col.locar, eliminar...)
         --> una manera d'arreglar-ho és només guardar la posició ul i lr però no estic segur
@@ -125,5 +124,6 @@ PROBLEMES:
     - On guardem les files que portem i com les afegim, si cal??
         --> Quan afegim fil.les podem mirar si ens passem de la fita superior que vam trobar. És una millora 
             d'eficiència i simplifica el codi.
-
 */
+
+
