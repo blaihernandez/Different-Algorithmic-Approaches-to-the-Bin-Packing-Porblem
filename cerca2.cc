@@ -51,7 +51,9 @@ bool piece_fits(FR& fabric_roll, Order order, Coordinates coord, bool reverse) {
 }
 
 // retorna les noves coordenades on provar de posar una peça
-Coordinates set_new_coordinates(FR& fabric_roll, Coordinates coord){
+Coordinates set_new_coordinates(int despl, FR& fabric_roll, Coordinates coord){
+    if (coord.x + despl < W) return Coordinates{coord.x + despl, coord.y};
+    else return Coordinates{0, coord.y + 1};
 }
 
 // desmarca la matriu 'fabric_roll' i n'elimina la peça 'Order' (del dret o del revès)
@@ -93,7 +95,7 @@ void exhaustive_search_solution_recursive(FR& fabric_roll, int count, Coordinate
                         insert_new_piece(p_sol, order, fabric_roll, current_coord, count, false);
                         current_L = max(current_L, current_coord.y + order.height + 1);
                         exhaustive_search_solution_recursive(fabric_roll, count + 1,
-                                                             set_new_coordinates(fabric_roll, current_coord),
+                                                             set_new_coordinates(order.width, fabric_roll, current_coord),
                                                              current_L, best_L, p_sol);
                         delete_piece(fabric_roll, order, current_coord, false); // eliminem la peça per trobar una nova combinació
                     }
@@ -102,7 +104,7 @@ void exhaustive_search_solution_recursive(FR& fabric_roll, int count, Coordinate
                         insert_new_piece(p_sol, order, fabric_roll, current_coord, count, true);
                         current_L = max(current_L, current_coord.y + order.width + 1);
                         exhaustive_search_solution_recursive(fabric_roll, count + 1,
-                                                             set_new_coordinates(fabric_roll, current_coord),
+                                                             set_new_coordinates(order.height, fabric_roll, current_coord),
                                                              current_L, best_L, p_sol);
                         delete_piece(fabric_roll, order, current_coord, true); // eliminem la peça per trobar una nova combinació
                     }
