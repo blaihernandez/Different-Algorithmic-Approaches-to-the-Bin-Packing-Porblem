@@ -27,7 +27,7 @@ vector<Order> Orders;
 
 // insereix la peça de 'Order' a la coordenada actual coord (del dret o del revès).
 // Marca fabric_roll indicant que allà hem posat la peça
-void insert_new_piece(vector<Position> p_sol, Order order, FR& fabric_roll, Coordinates coord, int c, bool reverse){
+void insert_new_piece(vector<Position>& p_sol, Order order, FR& fabric_roll, Coordinates coord, int c, bool reverse){
     int x = coord.x; int y = coord.y;
     int w = order.width; int h = order.height;
     if (reverse) w, h = h, w;
@@ -56,9 +56,16 @@ Coordinates set_new_coordinates(FR& fabric_roll, Coordinates coord){
 
 // desmarca la matriu 'fabric_roll' i n'elimina la peça 'Order' (del dret o del revès)
 // de les coordenades coord.
-void delete_piece(FR fabric_roll, Order order, Coordinates coord, bool reverse){
+void delete_piece(FR& fabric_roll, Order order, Coordinates coord, bool reverse){
+    int x = coord.x; int y = coord.y;
+    int w = order.width; int h = order.height;
+    if (reverse) w, h = h, w;
+    for (int i = y; i < y + h; ++i){
+        for (int j = x; j < x + w; ++j) fabric_roll[i][j] == false;
+    }
 }
 
+// ordena les comandes segons l'area del rectangle
 vector<Order> sort_orders(vector<Order>& Orders){
     std::sort(Orders.begin(), Orders.end(), [](const Order& a, const Order& b) {
         int areaA = a.width * a.height;
@@ -69,7 +76,7 @@ vector<Order> sort_orders(vector<Order>& Orders){
 
 
 void exhaustive_search_solution_recursive(FR& fabric_roll, int count, Coordinates current_coord, 
-                                        int current_L, int best_L, vector<Position> p_sol){
+                                        int current_L, int best_L, vector<Position>& p_sol){
     if (count == N) {
         if (current_L < best_L) best_L = current_L;
         // find_best_positions
@@ -103,7 +110,7 @@ void exhaustive_search_solution_recursive(FR& fabric_roll, int count, Coordinate
                 else {
                     // si està ocupada busquem una nova coordenada on intentar ficar la peça
                     current_coord = set_new_coordinates(fabric_roll, current_coord);
-                    exhaustive_search_solution_recursive(fabric_roll, count, current_coord, current_L, best_L);
+                    exhaustive_search_solution_recursive(fabric_roll, count, current_coord, current_L, best_L, p_sol);
                 }
             }
         }
@@ -125,6 +132,7 @@ int main() {
         Orders.push_back(Order{n_units, p, q});
         L_max += q;
     }
+    sort_orders(Orders);
     exhaustive_search_solution();
 }
 
@@ -142,3 +150,6 @@ PROBLEMES:
             d'eficiència i simplifica el codi.
 
 */
+
+
+
