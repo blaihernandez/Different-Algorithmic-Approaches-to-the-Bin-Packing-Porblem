@@ -23,36 +23,17 @@ struct Position{
 int N, W;
 vector<Rectangles> Pieces;
 
-bool exhaustive_search_solution_recursive(int r, int quant, int x, int y,
-                                          vector<vector<int>> teler,
+void exhaustive_search_solution_recursive(int r, int quant, int x, int y,
+                                          vector<int>& ple,
                                           int L, int bL, int c){
-    if (c == N) return;
+    if (c == N){
+        if (L < bL) bL = L;
+    }
     if (L < bL) {
-        for (Rectangles r : Pieces) {
-            for(int quant = 0; quant < r.n; ++quant) {
-                bool colocat = false;
-                for (int x = 0; x < W && !colocat; ++x) {
-                    for (int y = 0; y < L && !colocat; ++y) {
-                        if (cabe(teler, x, y, rect.ancho, rect.alto, W, L)) {
-                            colocar(teler, x, y, rect.ancho, rect.alto, rect.ancho * 1000 + rect.alto);
-                            colocat = true;
-                        } else if (cabe(teler, x, y, rect.alto, rect.ancho, W, L)) {
-                            colocar(teler, x, y, rect.alto, rect.ancho, rect.ancho * 1000 + rect.alto);
-                            colocat = true;
-                        }
-                    }
-                }
-                if (!colocat) {
-                    cabeTodo = false;
-                    break;
-                }
-            }
-            if (!cabeTodo) break;
-        }
-        if (cabeTodo) {
-            bL = min(bL, L);
-        } else {
-            ++L;
+        if (cap(Pieces[r], x, y, ple)){
+            //el poso
+            if(quant == Pieces[r].n) exhaustive_search_solution_recursive(r + 1, 0, nx, ny, ple, L, bL, c + 1);
+            else exhaustive_search_solution_recursive(r, quant + 1, nx, ny, ple, L, bL, c + 1);
         }
     }
 }
