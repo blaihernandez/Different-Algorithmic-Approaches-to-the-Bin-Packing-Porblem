@@ -52,7 +52,7 @@ bool piece_fits(FR& fabric_roll, Order order, Coordinates coord, bool reverse) {
 
 // retorna les noves coordenades on provar de posar una peça
 Coordinates set_new_coordinates(int despl, FR& fabric_roll, Coordinates coord){
-    if (coord.x + despl < W) return Coordinates{coord.x + despl, coord.y};
+    if (coord.x + despl < W - 1) return Coordinates{coord.x + despl, coord.y};
     else return Coordinates{0, coord.y + 1};
 }
 
@@ -111,7 +111,8 @@ void exhaustive_search_solution_recursive(FR& fabric_roll, int count, Coordinate
                 }
                 else {
                     // si està ocupada busquem una nova coordenada on intentar ficar la peça
-                    current_coord = set_new_coordinates(fabric_roll, current_coord);
+                    if (current_coord.x < W - 1) current_coord = Coordinates{current_coord.x + 1, current_coord.y};
+                    else current_coord = Coordinates{0, current_coord.y + 1};
                     exhaustive_search_solution_recursive(fabric_roll, count, current_coord, current_L, best_L, p_sol);
                 }
             }
