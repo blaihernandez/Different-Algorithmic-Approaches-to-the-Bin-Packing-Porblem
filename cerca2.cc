@@ -40,7 +40,14 @@ void insert_new_piece(vector<Position> p_sol, Order order, FR& fabric_roll, Coor
 }
 
 // mira si la nova peça cap a la coordenada actual (li podem dir que provi la peça del revès)
-bool piece_fits(FR& fabric_roll, Order r, Coordinates coord, bool reverse) {
+bool piece_fits(FR& fabric_roll, Order order, Coordinates coord, bool reverse) {
+    int x = coord.x; int y = coord.y;
+    int w = order.width; int h = order.height;
+    if (reverse) w, h = h, w;
+    for (int i = y; i < y + h; ++i){
+        for (int j = x; j < x + w; ++j) if (fabric_roll[i][j] or j >= W) return false;
+    return true;
+    }
 }
 
 // retorna les noves coordenades on provar de posar una peça
@@ -50,6 +57,14 @@ Coordinates set_new_coordinates(FR& fabric_roll, Coordinates coord){
 // desmarca la matriu 'fabric_roll' i n'elimina la peça 'Order' (del dret o del revès)
 // de les coordenades coord.
 void delete_piece(FR fabric_roll, Order order, Coordinates coord, bool reverse){
+}
+
+vector<Order> sort_orders(vector<Order>& Orders){
+    std::sort(Orders.begin(), Orders.end(), [](const Order& a, const Order& b) {
+        int areaA = a.width * a.height;
+        int areaB = b.width * b.height;
+        return areaA > areaB; // Descending order
+    });
 }
 
 
