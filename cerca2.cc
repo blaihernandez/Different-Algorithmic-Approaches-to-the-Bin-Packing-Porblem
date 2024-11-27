@@ -24,6 +24,16 @@ typedef vector<vector<bool>> FR;
 int N, W;
 vector<Order> Orders;
 
+void escriu_matriu(vector<vector<bool>> matriu) {
+    for(int i = 0; i < matriu.size(); ++i) {
+        for(int j = 0; j < matriu[0].size(); ++j) {
+            cout << matriu[i][j] << " ";
+        }
+        cout << endl;
+    }
+    cout << endl;
+}
+
 
 // insereix la peça de 'Order' a la coordenada actual coord (del dret o del revès).
 // Marca fabric_roll indicant que allà hem posat la peça
@@ -31,9 +41,9 @@ void insert_new_piece(vector<Position>& p_sol, Order order, FR& fabric_roll, Coo
     int x = coord.x; int y = coord.y;
     int w = order.width; int h = order.height;
     if (reverse) {int k = w; w = h; h = k;}
-    p_sol[c] = Position{Coordinates{x, y}, Coordinates{x + w, y + h}};
-    for (int i = x; i < x + w; ++i){
-        for(int j = y; j < y + h; ++j) fabric_roll[i][j] = true;
+    p_sol[c] = Position{Coordinates{x, y}, Coordinates{x + h, y + w}};
+    for (int i = x; i < x + h; ++i){
+        for(int j = y; j < y + w; ++j) fabric_roll[i][j] = true;
     }
 }
 
@@ -42,16 +52,16 @@ bool piece_fits(FR& fabric_roll, Order order, Coordinates coord, bool reverse) {
     int x = coord.x; int y = coord.y;
     int w = order.width; int h = order.height;
     if (reverse) {int k = w; w = h; h = k;}
-    for (int i = y; i < y + h; ++i){
-        for (int j = x; j < x + w; ++j) if (fabric_roll[i][j] or j >= W) return false;
+    for (int i = x; i < x + h; ++i){
+        for (int j = y; j < y + w; ++j) if (fabric_roll[i][j] or j >= W) return false;
     }
     return true;
 }
 
 // retorna les noves coordenades on provar de posar una peça
 Coordinates set_new_coordinates(int despl, FR& fabric_roll, Coordinates coord){
-    if (coord.x + despl < W - 1) return Coordinates{coord.x + despl, coord.y};
-    else return Coordinates{0, coord.y + 1};
+    if (coord.y + despl < W - 1) return Coordinates{coord.x, coord.y + despl};
+    else return Coordinates{coord.x + 1, 0};
 }
 
 // desmarca la matriu 'fabric_roll' i n'elimina la peça 'Order' (del dret o del revès)
@@ -60,8 +70,8 @@ void delete_piece(FR& fabric_roll, Order order, Coordinates coord, bool reverse)
     int x = coord.x; int y = coord.y;
     int w = order.width; int h = order.height;
     if (reverse) {int k = w; w = h; h = k;}
-    for (int i = y; i < y + h; ++i){
-        for (int j = x; j < x + w; ++j) fabric_roll[i][j] = false;
+    for (int i = x; i < x + h; ++i){
+        for (int j = y; j < y + w; ++j) fabric_roll[i][j] = false;
     }
 }
 
@@ -100,8 +110,10 @@ void exhaustive_search_solution_recursive(FR& fabric_roll, int count, Coordinate
                     if (piece_fits(fabric_roll, order, current_coord, false)) {
                         cout << "fits" << endl;
                         // la posem del dret
+                        escriu_matriu(fabric_roll);
                         insert_new_piece(p_sol, order, fabric_roll, current_coord, count, false);
-                        current_L = max(current_L, current_coord.y + order.height + 1);
+                        escriu_matriu(fabric_roll);
+                        current_L = max(current_L, current_coord.x + order.height + 1);
                         cout << "cridem" << endl;
                         exhaustive_search_solution_recursive(fabric_roll, count + 1,
                                                              set_new_coordinates(order.width, fabric_roll, current_coord),
@@ -112,7 +124,7 @@ void exhaustive_search_solution_recursive(FR& fabric_roll, int count, Coordinate
                         cout << "fits reves" << endl;
                         // la posem del revès
                         insert_new_piece(p_sol, order, fabric_roll, current_coord, count, true);
-                        current_L = max(current_L, current_coord.y + order.width + 1);
+                        current_L = max(current_L, current_coord.x + order.width + 1);
                         cout << "cridem reves" << endl;
                         exhaustive_search_solution_recursive(fabric_roll, count + 1,
                                                              set_new_coordinates(order.height, fabric_roll, current_coord),
@@ -123,8 +135,8 @@ void exhaustive_search_solution_recursive(FR& fabric_roll, int count, Coordinate
                 else {
                     cout << "ocupada" << current_coord.x << current_coord.y << endl;
                     // si està ocupada busquem una nova coordenada on intentar ficar la peça
-                    if (current_coord.x < W - 1) current_coord = Coordinates{current_coord.x + 1, current_coord.y};
-                    else current_coord = Coordinates{0, current_coord.y + 1};
+                    if (current_coord.y < W - 1) current_coord = Coordinates{current_coord.x, current_coord.y + 1};
+                    else current_coord = Coordinates{current_coord.x + 1, 0};
                     cout << "cridem abaix" << endl;
                     exhaustive_search_solution_recursive(fabric_roll, count, current_coord, current_L, best_L, p_sol);
                 }
