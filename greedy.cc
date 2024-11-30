@@ -55,6 +55,7 @@ void poso(int dx, int dy, int x, int y, vector<vector<int>>& teler, int id){
     }
 }
 
+/*
 void greedy(){
     ordenar_rectangles(orders);
     int id = 0; int L = 0;
@@ -85,6 +86,64 @@ void greedy(){
         }
     }
     cout << L << endl;
+}
+*/
+
+void greedy(){
+    ordenar_rectangles(orders);
+    int c = 0;
+    int L = 0;
+    int x = 0; int y = 0;
+    vector<int> usats(orders.size(), 0);
+    vector<vector<int>> teler(L_max, vector<int>(W, 0));
+    while(c < N) {
+        int id = 0;
+        int posat = false;
+        cout << "coords" << x << y << endl; //treure
+        for(int i = 0; i < orders.size() and not posat; ++i){
+            Order r = orders[i];
+            for(int q = 0; q < r.n and not posat; ++q){
+                ++id;
+                cout << "rectangle" << r.p << r.q << endl; //treure
+                if (usats[i] < r.n and cap(r.q, r.p, x, y, teler)){
+                    cout << "cap H" << endl; //treure
+                    poso(r.q, r.p, x, y, teler, id);
+                    escriu(teler); //treure
+                    posat = true;
+                    ++c;
+                    ++usats[i];
+                    L = max(L, y + r.p);
+                    if(x + r.q < W) x += r.q;
+                    else if(y + r.p < L) y += r.p;
+                    else {x = 0; y += r.p;}
+                }
+            }
+        }
+        if(not posat){
+            cout << "provem verticals" << endl;
+            id = 0;
+            for(int i = 0; i < orders.size() and not posat; ++i){
+                Order r = orders[i];
+                for(int q = 0; q < r.n and not posat; ++q){
+                    ++id;
+                    cout << "rectangle" << r.p << r.q << endl; //treure
+                    if (usats[i] < r.n and cap(r.p, r.q, x, y, teler)){
+                        cout << "cap V" << endl; //treure
+                        poso(r.p, r.q, x, y, teler, id);
+                        escriu(teler); //treure
+                        posat = true;
+                        ++c;
+                        ++usats[i];
+                        L = max(L, y + r.q);
+                        if(x + r.p < W) x += r.p;
+                        else if(y + r.q < L) y += r.q;
+                        else {x = 0; y += r.q;}
+                    }
+                }
+            }
+        }
+        if(not posat){x = 0; y = L;}
+    }
 }
 
 int main() {
