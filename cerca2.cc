@@ -1,158 +1,183 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <fstream>
+#include <climits> // For INT_MAX
 
 using namespace std;
 
-struct Order {
-    int n; /* nombre de Order de tipus (width x height)*/
-    int width;
-    int height;
+struct Rectangle {
+    int p; // width
+    int q; // height
 };
 
-struct Coordinates{
-    int x;
-    int y;
+struct Coordinates {
+    int i;
+    int j;
 };
 
-struct Position{
-    Coordinates ul;
-    Coordinates br;
+struct Position {
+    Coordinates ul; // Upper-left
+    Coordinates br; // Bottom-right
 };
 
 typedef vector<vector<bool>> FR;
-int N, W;
-vector<Order> Orders;
 
+int N, W, L_MAX;
+vector<Rectangle> Rectangles;
+int RESULT = INT_MAX; // Initialize to maximum possible value
 
-// insereix la peça de 'Order' a la coordenada actual coord (del dret o del revès).
-// Marca fabric_roll indicant que allà hem posat la peça
-void insert_new_piece(vector<Position>& p_sol, Order order, FR& fabric_roll, Coordinates coord, int c, bool reverse){
-    int x = coord.x; int y = coord.y;
-    int w = order.width; int h = order.height;
-    if (reverse) w, h = h, w;
-    p_sol[c] = Position{Coordinates{x, y}, Coordinates{x + w, y + h}};
-    for (int i = x; i < x + w; ++i){
-        for(int j = y; j < y + h; ++j){
-            fabric_roll[i][j] = true;
-        }
+// Debugging: Print the matrix
+void escriu_matriu(const FR& matriu) {
+    for (const auto& row : matriu) {
+        for (bool cell : row) cout << cell << " ";
+        cout << endl;
+    }
+    cout << endl;
+}
+
+// Insert a new rectangle piece
+void insert_new_piece(vector<Position>& p_sol, const Rectangle& R, FR& fabric, const Coordinates& coord, int c, bool reverse) {
+    int y = coord.i, x = coord.j;
+    int w = reverse ? R.q : R.p;
+    int h = reverse ? R.p : R.q;
+
+    p_sol[c] = Position{Coordinates{x, y}, Coordinates{x + w - 1, y + h - 1}};
+    for (int i = y; i < y + h; ++i) {
+        for (int j = x; j < x + w; ++j) fabric[i][j] = true;
     }
 }
 
-// mira si la nova peça cap a la coordenada actual (li podem dir que provi la peça del revès)
-bool piece_fits(FR& fabric_roll, Order order, Coordinates coord, bool reverse) {
-    int x = coord.x; int y = coord.y;
-    int w = order.width; int h = order.height;
-    if (reverse) w, h = h, w;
-    for (int i = y; i < y + h; ++i){
-        for (int j = x; j < x + w; ++j) if (fabric_roll[i][j] or j >= W) return false;
+// Check if a rectangle fits at the given coordinates
+bool piece_fits(const FR& fabric, const Rectangle& R, const Coordinates& coord, bool reverse) {
+    int y = coord.i, x = coord.j;
+    int w = reverse ? R.q : R.p;
+    int h = reverse ? R.p : R.q;
+
+    if (x + w > W || y + h > L_MAX) return false;
+
+    for (int i = y; i < y + h; ++i) {
+        for (int j = x; j < x + w; ++j) if (fabric[i][j]) return false;
+    }
     return true;
+}
+
+// Remove a rectangle piece from the fabric
+void delete_piece(FR& fabric, const Rectangle& R, const Coordinates& coord, bool reverse) {
+    int y = coord.i, x = coord.j;
+    int w = reverse ? R.q : R.p;
+    int h = reverse ? R.p : R.q;
+
+    for (int i = y; i < y + h; ++i) {
+        for (int j = x; j < x + w; ++j) fabric[i][j] = false;
     }
 }
 
-// retorna les noves coordenades on provar de posar una peça
-Coordinates set_new_coordinates(int despl, FR& fabric_roll, Coordinates coord){
-    if (coord.x + despl < W - 1) return Coordinates{coord.x + despl, coord.y};
-    else return Coordinates{0, coord.y + 1};
+// Calculate the next coordinates
+Coordinates set_new_coord(const Coordinates& coord, int d) {
+    if (coord.j + d < W) return {coord.i, coord.j + d};
+    return {coord.i + 1, 0};
 }
 
-// desmarca la matriu 'fabric_roll' i n'elimina la peça 'Order' (del dret o del revès)
-// de les coordenades coord.
-void delete_piece(FR& fabric_roll, Order order, Coordinates coord, bool reverse){
-    int x = coord.x; int y = coord.y;
-    int w = order.width; int h = order.height;
-    if (reverse) w, h = h, w;
-    for (int i = y; i < y + h; ++i){
-        for (int j = x; j < x + w; ++j) fabric_roll[i][j] == false;
-    }
-}
+// Recursive exhaustive search
+void exh_search_recursive(FR& fabric, int c, Coordinates current_coord, int current_L, vector<Position>& p_sol, vector<bool>& used) {
+    
+    if (c == N) {
+        // All rectangles placed; check the result
+        RESULT = min(RESULT, current_L);
 
-// ordena les comandes segons l'area del rectangle
-vector<Order> sort_orders(vector<Order>& Orders){
-    std::sort(Orders.begin(), Orders.end(), [](const Order& a, const Order& b) {
-        int areaA = a.width * a.height;
-        int areaB = b.width * b.height;
-        return areaA > areaB; // Descending order
-    });
-}
-
-
-void exhaustive_search_solution_recursive(FR& fabric_roll, int count, Coordinates current_coord, 
-                                        int current_L, int best_L, vector<Position>& p_sol){
-    if (count == N) {
-        if (current_L < best_L) best_L = current_L;
-        // find_best_positions
     }
 
-    else if (current_L < best_L){
-        for (Order order : Orders){
-            for (int q = 0; q < order.n; ++q) {
-                // mirem si la posició on volem col.locar la peça està ocupada
-                if (fabric_roll[current_coord.x][current_coord.y] == 0) {
-                    // si no està ocupada:
-                    if (piece_fits(fabric_roll, order, current_coord, false)) {
-                        // la posem del dret
-                        insert_new_piece(p_sol, order, fabric_roll, current_coord, count, false);
-                        current_L = max(current_L, current_coord.y + order.height + 1);
-                        exhaustive_search_solution_recursive(fabric_roll, count + 1,
-                                                             set_new_coordinates(order.width, fabric_roll, current_coord),
-                                                             current_L, best_L, p_sol);
-                        delete_piece(fabric_roll, order, current_coord, false); // eliminem la peça per trobar una nova combinació
+    else if (current_L < RESULT && current_L <= L_MAX && current_coord.i <= L_MAX) {
+        for (int i = 0; i < Rectangles.size() && !used[i]; ++i) {
+            if (!fabric[current_coord.i][current_coord.j]){
+
+                const Rectangle& R = Rectangles[i];
+
+                if (piece_fits(fabric, R, current_coord, true)) {
+                    insert_new_piece(p_sol, R, fabric, current_coord, c, true);
+                    used[i] = true;
+                    Coordinates next_coord = set_new_coord(current_coord, R.q);
+                    if (next_coord.i < L_MAX) {
+                        exh_search_recursive(fabric, c + 1, next_coord, max(current_L, current_coord.i + R.q), p_sol, used);
                     }
-                    if (order.width != order.height && piece_fits(fabric_roll, order, current_coord, true)){
-                        // la posem del revès
-                        insert_new_piece(p_sol, order, fabric_roll, current_coord, count, true);
-                        current_L = max(current_L, current_coord.y + order.width + 1);
-                        exhaustive_search_solution_recursive(fabric_roll, count + 1,
-                                                             set_new_coordinates(order.height, fabric_roll, current_coord),
-                                                             current_L, best_L, p_sol);
-                        delete_piece(fabric_roll, order, current_coord, true); // eliminem la peça per trobar una nova combinació
-                    }
+                    delete_piece(fabric, R, current_coord, true);
+                    used[i] = false;
                 }
-                else {
-                    // si està ocupada busquem una nova coordenada on intentar ficar la peça
-                    if (current_coord.x < W - 1) current_coord = Coordinates{current_coord.x + 1, current_coord.y};
-                    else current_coord = Coordinates{0, current_coord.y + 1};
-                    exhaustive_search_solution_recursive(fabric_roll, count, current_coord, current_L, best_L, p_sol);
+
+                if (piece_fits(fabric, R, current_coord, false)) {
+                    insert_new_piece(p_sol, R, fabric, current_coord, c, false);
+                    used[i] = true;
+                    Coordinates next_coord = set_new_coord(current_coord, R.p);
+                    if (next_coord.i < L_MAX) {
+                        exh_search_recursive(fabric, c + 1, next_coord, max(current_L, current_coord.i + R.p), p_sol, used);
+                    }
+                    delete_piece(fabric, R, current_coord, false);
+                    used[i] = false;
                 }
             }
         }
     }
-}
 
-void exhaustive_search_solution(){
-    /* com ho fem per retornar??? necessitem la longitud i les coordenades*/
-    exhaustive_search_solution();
-}
-
-
-int main() {
-    int n_units, p, q, L_max;
-    cin >> W >> N;
-    L_max = 0;
-    while (cin >> n_units) {
-        cin >> p >> q;
-        Orders.push_back(Order{n_units, p, q});
-        L_max += q;
+    // Try next coordinate
+    Coordinates next_coord = set_new_coord(current_coord, 1);
+    if (next_coord.i < L_MAX) {
+        exh_search_recursive(fabric, c, next_coord, current_L, p_sol, used);
     }
-    sort_orders(Orders);
-    exhaustive_search_solution();
 }
 
+// Start the exhaustive search
+void exh_search() {
+    FR fabric(L_MAX, vector<bool>(W, false));
+    vector<Position> p_sol(N);
+    vector<bool> used(N, false);
+    exh_search_recursive(fabric, 0, {0, 0}, 0, p_sol, used);
+}
 
-/*
+int main(int argc, char* argv[]) {
+    if (argc != 3) {
+        cerr << "Usage: " << argv[0] << " <input_file> <output_file>" << endl;
+        return 1;
+    }
 
-PROBLEMES:
-    - Fer-ho amb matriu és lent (col.locar, eliminar...)
-        --> una manera d'arreglar-ho és només guardar la posició ul i lr però no estic segur
-            que es pugui fer ni que sigui molt millor
-    - Determinar les noves coordenades, tant quan podem posar la peça com quan no
-    - Guardar les posicions d'allà on col.loquem les peces a la millor solució.
-    - On guardem les files que portem i com les afegim, si cal??
-        --> Quan afegim fil.les podem mirar si ens passem de la fita superior que vam trobar. És una millora 
-            d'eficiència i simplifica el codi.
+    ifstream infile(argv[1]);
+    if (!infile) {
+        cerr << "Error: Could not open input file " << argv[1] << endl;
+        return 1;
+    }
 
-*/
+    ofstream outfile(argv[2]);
+    if (!outfile) {
+        cerr << "Error: Could not open output file " << argv[2] << endl;
+        return 1;
+    }
+
+    infile >> W >> N;
+    L_MAX = 0;
+
+    int n_units, p, q;
+    while (infile >> n_units >> p >> q) {
+        for (int _ = 0; _ < n_units; ++_) Rectangles.push_back({p, q});
+        L_MAX += q * n_units;
+    }
+
+    infile.close();
+
+    streambuf* cout_buf = cout.rdbuf();
+    cout.rdbuf(outfile.rdbuf());
+
+    exh_search();
+
+    cout << "Minimum fabric length required: " << RESULT << endl;
+
+    cout.rdbuf(cout_buf);
+    outfile.close();
+    cout << "Minimum fabric length required: " << RESULT << endl;
+
+
+    return 0;
+}
+
 
 
 
