@@ -166,21 +166,3 @@ int main() {
     //sort_orders(Orders);
     exhaustive_search_solution(L_max);
 }
-
-
-/*
-
-PROBLEMES:
-    - Fer-ho amb matriu és lent (col.locar, eliminar...)
-        --> una manera d'arreglar-ho és només guardar la posició ul i lr però no estic segur
-            que es pugui fer ni que sigui molt millor
-    - Determinar les noves coordenades, tant quan podem posar la peça com quan no
-    - Guardar les posicions d'allà on col.loquem les peces a la millor solució.
-    - On guardem les files que portem i com les afegim, si cal??
-        --> Quan afegim fil.les podem mirar si ens passem de la fita superior que vam trobar. És una millora 
-            d'eficiència i simplifica el codi.
-
-*/
-
-
-
