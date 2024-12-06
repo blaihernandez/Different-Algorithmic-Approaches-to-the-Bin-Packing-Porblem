@@ -1,8 +1,8 @@
 #include <iostream>
 #include <vector>
-#include <string>
 #include <fstream>
 #include <climits> // For INT_MAX
+#include <cmath>
 
 using namespace std;
 
@@ -21,35 +21,46 @@ struct Position {
     Coordinates br; // Bottom-right
 };
 
-typedef vector<vector<bool>> FR;
+typedef vector<vector<bool>> Matrix;
 
 int N, W, L_MAX;
 vector<Rectangle> Rectangles;
-int RESULT = INT_MAX; // Initialize to maximum possible value
+int bestL = INT_MAX; 
+const char* output_file;
 
-// Debugging: Print the matrix
-void escriu_matriu(const FR& matriu) {
-    for (const auto& row : matriu) {
-        for (bool cell : row) cout << cell << " ";
-        cout << endl;
-    }
-    cout << endl;
+// void escriu_matriu(const Matrix& matriu) {
+//     for (const auto& row : matriu) {
+//         for (bool cell : row) 
+//             if (!cell )cout << "0";
+//             else cout << "1";
+//         cout << endl;
+//     }
+//     cout << endl;
+// }
+
+
+double elapsed_time(clock_t start_time){
+    clock_t end_time = clock();
+    double time_in_seconds = double(end_time - start_time) / CLOCKS_PER_SEC;
+    return round(time_in_seconds * 10.0) / 10.0; // Round to 1 decimal place
 }
 
-// Insert a new rectangle piece
-void insert_new_piece(vector<Position>& p_sol, const Rectangle& R, FR& fabric, const Coordinates& coord, int c, bool reverse) {
-    int y = coord.i, x = coord.j;
-    int w = reverse ? R.q : R.p;
-    int h = reverse ? R.p : R.q;
-
-    p_sol[c] = Position{Coordinates{x, y}, Coordinates{x + w - 1, y + h - 1}};
-    for (int i = y; i < y + h; ++i) {
-        for (int j = x; j < x + w; ++j) fabric[i][j] = true;
+void write_solution(vector<Position>& pSol, int bestL, clock_t start_time) {
+    ofstream outfile(output_file); // Open in append mode
+    if (!outfile) {
+        cerr << "Error: Could not open output file " << output_file << endl;
+        return;
     }
+    outfile << elapsed_time(start_time) << endl;
+    outfile << bestL << endl;
+    for (const Position& p : pSol) {
+        outfile << p.ul.i << " " << p.ul.j << "     " << p.br.i << " " << p.br.j << endl;
+    }
+    outfile.close();
 }
 
 // Check if a rectangle fits at the given coordinates
-bool piece_fits(const FR& fabric, const Rectangle& R, const Coordinates& coord, bool reverse) {
+bool piece_fits(const Matrix& fabric, const Rectangle& R, const Coordinates& coord, bool reverse) {
     int y = coord.i, x = coord.j;
     int w = reverse ? R.q : R.p;
     int h = reverse ? R.p : R.q;
@@ -62,8 +73,20 @@ bool piece_fits(const FR& fabric, const Rectangle& R, const Coordinates& coord, 
     return true;
 }
 
+// Insert a new rectangle piece
+void insert_new_piece(Matrix& fabric, const Rectangle& R, const Coordinates& coord, vector<Position>& pSol, int c, bool reverse) {
+    int y = coord.i, x = coord.j;
+    int w = reverse ? R.q : R.p;
+    int h = reverse ? R.p : R.q;
+
+    pSol[c] = Position{Coordinates{x, y}, Coordinates{x + w - 1, y + h - 1,}};
+    for (int i = y; i < y + h; ++i) {
+        for (int j = x; j < x + w; ++j) fabric[i][j] = true;
+    }
+}
+
 // Remove a rectangle piece from the fabric
-void delete_piece(FR& fabric, const Rectangle& R, const Coordinates& coord, bool reverse) {
+void delete_piece(Matrix& fabric, const Rectangle& R, const Coordinates& coord, vector<Position>& pSol, int c, bool reverse) {
     int y = coord.i, x = coord.j;
     int w = reverse ? R.q : R.p;
     int h = reverse ? R.p : R.q;
@@ -74,110 +97,103 @@ void delete_piece(FR& fabric, const Rectangle& R, const Coordinates& coord, bool
 }
 
 // Calculate the next coordinates
-Coordinates set_new_coord(const Coordinates& coord, int d) {
+Coordinates set_next_coord(const Coordinates& coord, int d) {
     if (coord.j + d < W) return {coord.i, coord.j + d};
     return {coord.i + 1, 0};
 }
 
 // Recursive exhaustive search
-void exh_search_recursive(FR& fabric, int c, Coordinates current_coord, int current_L, vector<Position>& p_sol, vector<bool>& used) {
-    
+void exh_search_recursive(Matrix& fabric, int c, Coordinates currentCoord, int currentL, 
+                        vector<Position>& pSol, vector<bool>& used, clock_t st) {
+
     if (c == N) {
-        // All rectangles placed; check the result
-        RESULT = min(RESULT, current_L);
-
+        bestL = min(bestL, currentL);
+        write_solution(pSol, bestL, st);
     }
-
-    else if (current_L < RESULT && current_L <= L_MAX && current_coord.i <= L_MAX) {
+    
+    else if (currentL < bestL && currentL <= L_MAX && currentCoord.i <= bestL) {
         for (int i = 0; i < Rectangles.size() && !used[i]; ++i) {
-            if (!fabric[current_coord.i][current_coord.j]){
+            if (!fabric[currentCoord.i][currentCoord.j]){
 
                 const Rectangle& R = Rectangles[i];
 
-                if (piece_fits(fabric, R, current_coord, true)) {
-                    insert_new_piece(p_sol, R, fabric, current_coord, c, true);
+                if (piece_fits(fabric, R, currentCoord, true) && currentCoord.i + R.p <= bestL) {
+                    insert_new_piece(fabric, R, currentCoord, pSol, c, true);
                     used[i] = true;
-                    Coordinates next_coord = set_new_coord(current_coord, R.q);
-                    if (next_coord.i < L_MAX) {
-                        exh_search_recursive(fabric, c + 1, next_coord, max(current_L, current_coord.i + R.q), p_sol, used);
+                    Coordinates newCoord = set_next_coord(currentCoord, R.q);
+                    if (newCoord.i <= bestL && newCoord.i < L_MAX) {
+                        exh_search_recursive(fabric, c + 1, newCoord, max(currentL, currentCoord.i + R.p), pSol, used, st);
                     }
-                    delete_piece(fabric, R, current_coord, true);
+                    delete_piece(fabric, R, currentCoord, pSol, c, true);
                     used[i] = false;
                 }
 
-                if (piece_fits(fabric, R, current_coord, false)) {
-                    insert_new_piece(p_sol, R, fabric, current_coord, c, false);
+                if (R.p != R.q && piece_fits(fabric, R, currentCoord, false) && currentCoord.i + R.q <= bestL) {
+                    insert_new_piece(fabric, R, currentCoord, pSol, c, false);
                     used[i] = true;
-                    Coordinates next_coord = set_new_coord(current_coord, R.p);
-                    if (next_coord.i < L_MAX) {
-                        exh_search_recursive(fabric, c + 1, next_coord, max(current_L, current_coord.i + R.p), p_sol, used);
+                    Coordinates newCoord = set_next_coord(currentCoord, R.p);
+                    if (newCoord.i <= bestL && newCoord.i < L_MAX) {
+                        exh_search_recursive(fabric, c + 1, newCoord, max(currentL, currentCoord.i + R.q), pSol, used, st);
                     }
-                    delete_piece(fabric, R, current_coord, false);
+                    delete_piece(fabric, R, currentCoord, pSol, c, false);
                     used[i] = false;
                 }
             }
         }
-    }
-
-    // Try next coordinate
-    Coordinates next_coord = set_new_coord(current_coord, 1);
-    if (next_coord.i < L_MAX) {
-        exh_search_recursive(fabric, c, next_coord, current_L, p_sol, used);
+        Coordinates nextCoord = set_next_coord(currentCoord, 1);
+        if (nextCoord.i <= currentL && nextCoord.i < L_MAX){
+            exh_search_recursive(fabric, c, nextCoord, max(currentL, nextCoord.i), pSol, used, st);
+        }
     }
 }
 
 // Start the exhaustive search
 void exh_search() {
-    FR fabric(L_MAX, vector<bool>(W, false));
-    vector<Position> p_sol(N);
+    Matrix fabric(L_MAX, vector<bool>(W, false));
+    vector<Position> pSol(N);
     vector<bool> used(N, false);
-    exh_search_recursive(fabric, 0, {0, 0}, 0, p_sol, used);
+    double start_time = clock();
+    Coordinates initial_coords = Coordinates{0, 0};
+    exh_search_recursive(fabric, 0, initial_coords, 0, pSol, used, start_time);
 }
 
+// Comparator function to sort rectangles by area
+bool compareByArea(const Rectangle& a, const Rectangle& b) {
+    return a.p * a.q > b.p * b.q; 
+}
+
+// Function to sort a list of rectangles by area
+void sort_by_area() {
+    sort(Rectangles.begin(), Rectangles.end(), compareByArea);
+}
+
+
+
 int main(int argc, char* argv[]) {
+
     if (argc != 3) {
         cerr << "Usage: " << argv[0] << " <input_file> <output_file>" << endl;
         return 1;
     }
-
     ifstream infile(argv[1]);
     if (!infile) {
         cerr << "Error: Could not open input file " << argv[1] << endl;
         return 1;
     }
-
-    ofstream outfile(argv[2]);
-    if (!outfile) {
-        cerr << "Error: Could not open output file " << argv[2] << endl;
-        return 1;
-    }
-
+    output_file = argv[2];
     infile >> W >> N;
     L_MAX = 0;
-
     int n_units, p, q;
     while (infile >> n_units >> p >> q) {
         for (int _ = 0; _ < n_units; ++_) Rectangles.push_back({p, q});
         L_MAX += q * n_units;
     }
-
-    infile.close();
-
-    streambuf* cout_buf = cout.rdbuf();
-    cout.rdbuf(outfile.rdbuf());
-
+    sort_by_area();
     exh_search();
-
-    cout << "Minimum fabric length required: " << RESULT << endl;
-
-    cout.rdbuf(cout_buf);
-    outfile.close();
-    cout << "Minimum fabric length required: " << RESULT << endl;
-
+    cout << bestL;
 
     return 0;
 }
-
 
 
 
