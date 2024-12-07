@@ -28,16 +28,6 @@ vector<Rectangle> Rectangles;
 int bestL = INT_MAX; 
 const char* output_file;
 
-// void escriu_matriu(const Matrix& matriu) {
-//     for (const auto& row : matriu) {
-//         for (bool cell : row) 
-//             if (!cell )cout << "0";
-//             else cout << "1";
-//         cout << endl;
-//     }
-//     cout << endl;
-// }
-
 
 double elapsed_time(clock_t start_time){
     clock_t end_time = clock();
@@ -45,6 +35,7 @@ double elapsed_time(clock_t start_time){
     return round(time_in_seconds * 10.0) / 10.0; // Round to 1 decimal place
 }
 
+// Writes the solution in the output file, re-writes it if there was already one.
 void write_solution(vector<Position>& pSol, int bestL, clock_t start_time) {
     ofstream outfile(output_file); // Open in append mode
     if (!outfile) {
@@ -73,7 +64,8 @@ bool piece_fits(const Matrix& fabric, const Rectangle& R, const Coordinates& coo
     return true;
 }
 
-// Insert a new rectangle piece
+// Inserts a new rectangle in the fabric wich has its upper-left Coordinates in coord
+// and adds it to the partial solution p_sol
 void insert_new_piece(Matrix& fabric, const Rectangle& R, const Coordinates& coord, vector<Position>& pSol, int c, bool reverse) {
     int y = coord.i, x = coord.j;
     int w = reverse ? R.q : R.p;
@@ -85,8 +77,8 @@ void insert_new_piece(Matrix& fabric, const Rectangle& R, const Coordinates& coo
     }
 }
 
-// Remove a rectangle piece from the fabric
-void delete_piece(Matrix& fabric, const Rectangle& R, const Coordinates& coord, vector<Position>& pSol, int c, bool reverse) {
+// Removes the rectangle R sitting in the Coordinates coord from the fabric
+void delete_piece(Matrix& fabric, const Rectangle& R, const Coordinates& coord, int c, bool reverse) {
     int y = coord.i, x = coord.j;
     int w = reverse ? R.q : R.p;
     int h = reverse ? R.p : R.q;
@@ -96,7 +88,8 @@ void delete_piece(Matrix& fabric, const Rectangle& R, const Coordinates& coord, 
     }
 }
 
-// Calculate the next coordinates
+// Computes the next coordinates to visit moving d squares to the right.
+// If out of bounds, then jump to the next row.
 Coordinates set_next_coord(const Coordinates& coord, int d) {
     if (coord.j + d < W) return {coord.i, coord.j + d};
     return {coord.i + 1, 0};
@@ -112,36 +105,37 @@ void exh_search_recursive(Matrix& fabric, int c, Coordinates currentCoord, int c
     }
     
     else if (currentL < bestL && currentL <= L_MAX && currentCoord.i <= bestL) {
-        for (int i = 0; i < Rectangles.size() && !used[i]; ++i) {
-            if (!fabric[currentCoord.i][currentCoord.j]){
+        for (int i = 0; i < Rectangles.size(); ++i) {
+            if (!used[i] && !fabric[currentCoord.i][currentCoord.j]) {
 
                 const Rectangle& R = Rectangles[i];
 
-                if (piece_fits(fabric, R, currentCoord, true) && currentCoord.i + R.p <= bestL) {
+                if (currentCoord.i + R.p < bestL && piece_fits(fabric, R, currentCoord, true)) {
                     insert_new_piece(fabric, R, currentCoord, pSol, c, true);
                     used[i] = true;
                     Coordinates newCoord = set_next_coord(currentCoord, R.q);
-                    if (newCoord.i <= bestL && newCoord.i < L_MAX) {
+                    if (newCoord.i < bestL && newCoord.i < L_MAX) {
                         exh_search_recursive(fabric, c + 1, newCoord, max(currentL, currentCoord.i + R.p), pSol, used, st);
                     }
-                    delete_piece(fabric, R, currentCoord, pSol, c, true);
+                    delete_piece(fabric, R, currentCoord, c, true);
                     used[i] = false;
                 }
 
-                if (R.p != R.q && piece_fits(fabric, R, currentCoord, false) && currentCoord.i + R.q <= bestL) {
+                if (R.p != R.q && currentCoord.i + R.q < bestL && piece_fits(fabric, R, currentCoord, false)) {
                     insert_new_piece(fabric, R, currentCoord, pSol, c, false);
                     used[i] = true;
                     Coordinates newCoord = set_next_coord(currentCoord, R.p);
-                    if (newCoord.i <= bestL && newCoord.i < L_MAX) {
+                    if (newCoord.i < bestL && newCoord.i < L_MAX) {
                         exh_search_recursive(fabric, c + 1, newCoord, max(currentL, currentCoord.i + R.q), pSol, used, st);
                     }
-                    delete_piece(fabric, R, currentCoord, pSol, c, false);
+                    delete_piece(fabric, R, currentCoord, c, false);
                     used[i] = false;
                 }
             }
         }
-        Coordinates nextCoord = set_next_coord(currentCoord, 1);
-        if (nextCoord.i <= currentL && nextCoord.i < L_MAX){
+        int d = 1; // displacement
+        Coordinates nextCoord = set_next_coord(currentCoord, d);
+        if (nextCoord.i < bestL && nextCoord.i < L_MAX){
             exh_search_recursive(fabric, c, nextCoord, max(currentL, nextCoord.i), pSol, used, st);
         }
     }
@@ -158,13 +152,13 @@ void exh_search() {
 }
 
 // Comparator function to sort rectangles by area
-bool compareByArea(const Rectangle& a, const Rectangle& b) {
+bool compare_by_area(const Rectangle& a, const Rectangle& b) {
     return a.p * a.q > b.p * b.q; 
 }
 
-// Function to sort a list of rectangles by area
+// Sorts the list Rectangles by area
 void sort_by_area() {
-    sort(Rectangles.begin(), Rectangles.end(), compareByArea);
+    sort(Rectangles.begin(), Rectangles.end(), compare_by_area);
 }
 
 
@@ -194,6 +188,3 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
-
-
-
