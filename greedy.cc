@@ -40,8 +40,7 @@ void escriu(vector<vector<int>> matriu) {
 
 void ordenar_rectangles(vector<Order>& orders) {
     sort(orders.begin(), orders.end(), [](const Order& a, const Order& b) {
-        if (a.q != b.q) return a.q > b.q;
-        else return a.p > b.p;
+        return a.p*a.q > b.p*b.q;
     });
 }
 
