@@ -4,59 +4,65 @@
 #include <algorithm>
 #include <fstream>
 #include <cmath>
-#include <unordered_set>
-#include <ctime>
 
 using namespace std;
 
+
 struct Rectangle {
-    int id;
-    int p;
+    int id;  // Id used for metaheuristic
+    int p;  
     int q;
-
-    // Equality operator for unordered_set comparison
-    bool operator==(const Rectangle& other) const {
-        return id == other.id;
-    }
 };
 
-struct Solution {
-    vector<Rectangle> solution;
-    int fitness;
+// Representation of an individual for metaheuristic purposes.
+// The grater the fitness, the better the individual.
+struct Individual {
+    vector<Rectangle> rectArray; // List of rectangles. Each individual's array is sorted differently
+    int fitness;                 // Defined as L_MAX - L (L = greedy(rectArray))
 };
 
-struct Coordinates {
+struct Coordinates{
     int x;
     int y;
 };
 
-struct Position {
+// Upper-left and bottom-right coordinates of the rectangle
+struct Position{
     Coordinates ul;
     Coordinates br;
 };
 
-typedef vector<vector<bool>> FR;
+typedef vector<vector<int>> Matrix;
+typedef vector<Position> Positions;
 
-// Parameters for the metaheuristic
-float mutation_prob = 0.01; // Mutation probability
-int ITER_MAX, K, S;         // Max iterations                 // Population size and number of parents
+
+// Metaheuristic parameters
+const int K = 30;            // Population size
+const int S = 20;            // Number of parents
+const float P = 0.30;          // Mutation probability (usually smaller, but for this problem works better)
+const int ITER_MAX = 2000;   // Number of iterations
 
 const int UNDEF = -1;
 int N, W, L_MAX;
 
 
-double elapsed_time(clock_t st) {
-    clock_t end_time = clock();
-    double time_in_seconds = double(end_time - st) / CLOCKS_PER_SEC;
-    return round(time_in_seconds * 10.0) / 10.0;
+
+// // // // // // GREEDY \\ \\ \\ \\ \\ \\
+
+
+// Returns the elapsed time of the execution in seconds.
+double elapsed_time(clock_t startTime) {
+    clock_t endTime = clock();
+    double timeInSeconds = double(endTime - startTime) / CLOCKS_PER_SEC;
+    return round(timeInSeconds * 10.0) / 10.0;
 }
 
-
-void write_solution(char* out_file, int L, const vector<Position>& sol, clock_t st) {
-    double temps = elapsed_time(st);
+// Writes the solution sol on the ouput file following the required format. Returns nothing.
+void write_solution(char* outputFile, int L, const Positions& sol, clock_t startTime) {
+    double time = elapsed_time(startTime);
     ofstream output;
-    output.open(out_file);
-    output << temps << endl;
+    output.open(outputFile);
+    output << time << endl;
     output << L << endl;
     for (Position pos : sol){
         output << pos.ul.x << " " << pos.ul.y << "   " << pos.br.x << " " << pos.br.y << endl;
@@ -64,223 +70,232 @@ void write_solution(char* out_file, int L, const vector<Position>& sol, clock_t 
     output.close();
 }
 
+// Sorts the list of rectangles Rectangles by area. Returns nothing.
+void sort_by_area(vector<Rectangle>& Rectangles) {
+    sort(Rectangles.begin(), Rectangles.end(), [](const Rectangle& a, const Rectangle& b) {
+        if(a.p * a.q == b.p * b.q) return a.q > b.q;
+        return a.p * a.q > b.p * b.q;
+    });
+}
 
-bool piece_fits(int di, int dj, int i, int j, const vector<vector<int>>& fabric){
-    if (dj + j > W) return false;
+// Returns a bool based on whether coordinates (j..j + dj, i..i + di) are empty or not.
+bool piece_fits(int di, int dj, int i, int j, const Matrix& Fabric){
+    if(dj + j > W) return false;
     for (int row = i; row < i + di; ++row){
-        for (int col = j; col < j + dj; ++col) if(!fabric[row][col]) return false;
+        for (int col = j; col < j + dj; ++col) if(Fabric[row][col] != 0) return false;
     }
     return true;
 }
 
-
-void insert_piece(int di, int dj, int i, int j, vector<vector<int>>& fabric, int c, vector<Position>& sol){
+// Inserts a new piece ti the Fabric in the coordinates 
+// (j..j + dj, i..i + di). Returns nothing.
+void insert_piece(int di, int dj, int i, int j, Matrix& Fabric, int c, Positions& sol){
     for (int row = i; row < i + di; ++row){
-        for (int col = j; col < j + dj; ++col) fabric[row][col] = c;
+        for (int col = j; col < j + dj; ++col) Fabric[row][col] = c;
     }
     sol[c - 1] = Position{Coordinates{j, i}, Coordinates{j + dj - 1, i + di - 1}};
 }
 
-
-Coordinates set_new_coordinates(int i, int j, const vector<vector<int>>& fabric){
+// Returns the next free coordinates of the Fabric moving to the right.
+Coordinates set_new_coordinates(int i, int j, const Matrix& Fabric){
     for (int row = i; row < L_MAX; ++row) {
-        for(int col = (row == i) ? j : 0; col < W; ++col) if (!fabric[row][col]) return {col, row};
+        for(int col = (row == i) ? j : 0; col < W; ++col){
+            if (!Fabric[row][col]) return {col, row};
+        }
     }
     return {};
 }
 
-
-int greedy(const vector<Rectangle>& rectangles, vector<Position>& sol){
-    int c = 0;
+// Finds a (possibly) optimal solution to the problem using a greedy algorithm
+int greedy(const vector<Rectangle>& Rectangles, Positions& sol){
+    int c = 0; 
     int L = 0;
     int i = 0; int j = 0;
-    Coordinates new_coord;
-    vector<int> usats(rectangles.size(), 0);
-    vector<vector<int>> fabric(L_MAX, vector<int>(W, 0));
+    vector<int> used(Rectangles.size(), 0);
+    Matrix Fabric(L_MAX, vector<int>(W, 0));
     while(c < N) {
-        int posat = false;
-        for(int s = 0; s < rectangles.size() and not posat; ++s){
-            Rectangle r = rectangles[s];
-            if (!usats[s] && piece_fits(r.p, r.q, i, j, fabric)){
-                insert_piece(r.p, r.q, i, j, fabric, c + 1, sol);
-                posat = true;
-                ++c;
-                ++usats[s];
-                L = max(L, i + r.p);
-                new_coord = set_new_coordinates(i, j, fabric);
-                i = new_coord.y;
-                j = new_coord.x;
+        int in = false;
+        for(int s = 0; s < Rectangles.size() && !in; ++s){
+
+            Rectangle R = Rectangles[s];
+
+            if (!used[s] && piece_fits(R.p, R.q, i, j, Fabric)){
+                insert_piece(R.p, R.q, i, j, Fabric, c + 1, sol);
+                in = true; ++c; ++used[s];
+                L = max(L, i + R.p);
+                Coordinates newCoord = set_new_coordinates(i, j, Fabric);
+                i = newCoord.y; j = newCoord.x;
             }
-            if (!posat && !usats[s] && piece_fits(r.q, r.p, i, j, fabric)){
-                insert_piece(r.q, r.p, i, j, fabric, c + 1, sol);
-                posat = true;
-                ++c;
-                ++usats[s];
-                L = max(L, i + r.q);
-                new_coord = set_new_coordinates(i, j, fabric);
-                i = new_coord.y;
-                j = new_coord.x;
+            if (!in && !used[s] && piece_fits(R.q, R.p, i, j, Fabric)){
+                insert_piece(R.q, R.p, i, j, Fabric, c + 1, sol);
+                in = true; ++c; ++used[s];
+                L = max(L, i + R.q);
+                Coordinates newCoord = set_new_coordinates(i, j, Fabric);
+                i = newCoord.y; j = newCoord.x;
             }
         }
-        if(not posat){
-            new_coord = set_new_coordinates((j + 1 < W ? i : i + 1), (j + 1 < W ? j + 1 : 0), fabric);
-            i = new_coord.y;
-            j = new_coord.x;
+        if(!in){
+            Coordinates newCoord = set_new_coordinates((j + 1 < W ? i : i + 1), (j + 1 < W ? j + 1 : 0), Fabric);
+            i = newCoord.y; j = newCoord.x;
         }
     }
     return L;
 }
 
 
+// // // // // // METAHEURISTIC \\ \\ \\ \\ \\ \\
 
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// METAHEURISTIC //
-
-
-void sort_by_fitness(vector<Solution>& P) {
-    sort(P.begin(), P.end(), [](const Solution& a, const Solution& b) {
+// Sorts the individuals list P by fitness.
+void sort_by_fitness(vector<Individual>& P) {
+    sort(P.begin(), P.end(), [](const Individual& a, const Individual& b) {
         return a.fitness > b.fitness;
     });
 }
 
-vector<Solution> generate_initial_population(const vector<Rectangle>& rectangles, vector<Position>& sol) {
-    vector<Solution> Pini(K);
-    Pini[0] = {rectangles, L_MAX - greedy(rectangles, sol)};
-    for (int i = 1; i < K; ++i) {
-        vector<Rectangle> newrect = rectangles;
-        for (int n = 0; n < 2; ++n) { // Perform 2 random swaps
-            int a = rand() % N;
-            int b = rand() % N;
-            swap(newrect[a], newrect[b]);
+// Performs an order crossover of an offspring filled already with the rectangles in the midle from 
+// the other parent and fills the ends with the rectangles from the parent 'parent'.
+void order_crossover(int cut1, int cut2, vector<Rectangle>& parent, vector<Rectangle>& offspring){
+    int k = 0;
+    for (int m = 0; m < N; ++m){
+        if (k < cut1){
+            bool isInMiddle = false;
+            for (int q = cut1; q < cut2; ++q) if (parent[m].id == offspring[q].id) isInMiddle = true;
+            if (!isInMiddle){offspring[k] = parent[m]; ++k;}
         }
-        Pini[i] = {newrect, L_MAX - greedy(newrect, sol)};
+        else if (k == cut1) k = cut2;
+        if (k >= cut2){
+            bool isInMiddle = false;
+            for (int q = cut1; q < cut2; ++q) if (parent[m].id == offspring[q].id) isInMiddle = true;
+            if (!isInMiddle){offspring[k] = parent[m]; ++k;}
+        } 
     }
-    return Pini;
 }
 
-vector<Solution> select_parents(const vector<Solution>& P) {
-    vector<Solution> selectedParents(S);
-    for (int i = 0; i < S; ++i) {
-        selectedParents[i] = P[i]; // Direct assignment
+// Recombines all the solutions in list 'parents' and returns the result of the recombination
+// performing an 'order crossover' and returns the list of those offsprings.
+vector<Individual> recombine(const vector<Individual>& parents, Positions& sol){
+    vector<Individual> offsprings(S);
+    int cut1 = rand() % (N - 1) + 1; // Can't be 0 nor N
+    int cut2 = rand() % (N) + 1; // Can't be 0
+    if (cut1 > cut2) swap(cut1, cut2); // cut1 must be lower than cut2
+    else if (cut1 == cut2) ++cut2; // At least differ in one postion
+
+    for (int i = 0; i < S; i = i + 2) {
+
+        vector<Rectangle> dad = parents[i].rectArray;
+        vector<Rectangle> mom = parents[i + 1].rectArray;
+        vector<Rectangle> offspring1(N); vector<Rectangle> offspring2(N);
+        
+        // Determine rectangles from the middle
+        for (int j = cut1; j < cut2; ++j) {
+            offspring1[j] = dad[j]; 
+            offspring2[j] = mom[j];
+        }
+        order_crossover(cut1, cut2, mom, offspring1);
+        order_crossover(cut1, cut2, dad, offspring2);
+        offsprings[i] = {offspring1, L_MAX - greedy(offspring1, sol)};
+        offsprings[i + 1] = {offspring2, L_MAX - greedy(offspring2, sol)};
     }
-    return selectedParents;
+    return offsprings;
 }
 
-Solution orderCrossover(Solution p1, Solution p2, vector<Position>& sol) {
-    int n = p1.solution.size();
-    vector<Rectangle> offspring(n, Rectangle{UNDEF, 0, 0});
+// Reverses a random rectangle R from the list R. Returns nothing.
+void random_reverse(vector<Rectangle>& R){
+    int a = rand() % N; 
+    swap(R[a].p, R[a].q);
+}
 
-    int start = rand() % n;
-    int end = rand() % n;
-    if (start > end) swap(start, end);
+// Swaps two random recangle's positions on the list R. Returns nothing
+void random_swap(vector<Rectangle>& R) {  
+    int a = rand() % N; 
+    int b = rand() % N;
+    swap(R[a], R[b]);
+}
 
-    // Copy segment from parent1
-    for (int i = start; i <= end; ++i) {
-        offspring[i] = p1.solution[i];
-    }
-
-    // Fill remaining from parent2 in order
-    unordered_set<int> copiedIds;
-    for (int i = start; i <= end; ++i) {
-        copiedIds.insert(p1.solution[i].id);
-    }
-    int currentIdx = (end + 1) % n;
-    for (int i = 0; i < n; ++i) {
-        int idx = (end + 1 + i) % n;
-        if (copiedIds.find(p2.solution[idx].id) == copiedIds.end()) {
-            offspring[currentIdx] = p2.solution[idx];
-            currentIdx = (currentIdx + 1) % n;
+// Perfoms a random mutations to random individuals on the list. Returns nothing.
+void mutate(vector<Individual>& individuals){
+    for (Individual ind : individuals) {
+        if (rand()/static_cast<double>(RAND_MAX) < P){
+            random_swap(ind.rectArray);
+        }
+        if (rand()/static_cast<double>(RAND_MAX) < P){
+            random_reverse(ind.rectArray);
         }
     }
-
-    return Solution{offspring, L_MAX - greedy(offspring, sol)};
 }
 
-vector<Solution> recombine(const vector<Solution>& parents, vector<Position>& sol) {
-    vector<Solution> offspring;
-    for (int i = 0; i < parents.size() - 1; ++i) {
-        offspring.push_back(orderCrossover(parents[i], parents[i + 1], sol));
-    }
-    return offspring;
-}
-
-void mutate(vector<Solution>& offspring) {
-    for (auto& child : offspring) {
-        if (rand() / static_cast<double>(RAND_MAX) < mutation_prob) {
-            int a = rand() % N;
-            int b = rand() % N;
-            swap(child.solution[a], child.solution[b]);
-        }
+// Selects the K fittest individuals between newP and P. Returns nothing.
+void select_individuals(const vector<Individual>& newP, vector<Individual>& P){
+    P.insert(P.end(), newP.begin(), newP.end());
+    sort_by_fitness(P);
+    if (P.size() > K){
+        auto it = P.begin();
+        advance(it, K);
+        P.erase(it, P.end());
     }
 }
 
+// Selects and returns the S fittest individuals which will be recombined.  
+vector<Individual> select_parents(vector<Individual>& P){
+    vector<Individual> selected(S);
+    sort_by_fitness(P);
+    for (int i = 0; i < S; ++i) selected[i] = P[i];
+    return selected;
+}
 
-void select_individuals(vector<Solution>& population, const vector<Solution>& offspring) {
-    population.insert(population.end(), offspring.begin(), offspring.end());
-    sort_by_fitness(population);
-    if (population.size() > K) {
-        population.resize(K); // Keep top k individuals
+// Generates and returns the initial population of solutions by randomly swapping 
+// positions from sorted list and reversing rectangles.
+vector<Individual> generate_initial_population(const vector<Rectangle>& Rectangles, Positions& sol){
+    vector<Individual> iniP(K);
+    iniP[0] = {Rectangles, L_MAX - greedy(Rectangles, sol)};
+    for (int i = 1; i < K; ++i){
+        vector<Rectangle> newRect = Rectangles;
+        random_swap(newRect);
+        random_reverse(newRect);
+        iniP[i] = {newRect, L_MAX - greedy(newRect, sol)}; 
     }
+    return iniP;
 }
 
+// Gives every rectangle an integer id. Returns nothing. 
+void set_rectangles_id(vector<Rectangle>& R){
+    for (int i = 1; i <= R.size(); ++i) R[i - 1].id = i;
+}
 
-void add_rectangle_id(vector<Rectangle>& rectangles) {
-    for (int i = 0; i < rectangles.size(); ++i) {
-        rectangles[i].id = i + 1;
+// Reproduces a methaeuristic based on genetic selection. Starting from an intital population
+// of K individuals, each time we select the best of them and breed or mutate them.
+int genetic_metaheuristic(vector<Rectangle>& Rectangles, Positions& sol) {
+    sort_by_area(Rectangles);
+    set_rectangles_id(Rectangles);
+    vector<Individual> Population = generate_initial_population(Rectangles, sol);
+    sort_by_fitness(Population);
+    for (int i = 0; i < ITER_MAX; ++i){
+        vector<Individual> parents = select_parents(Population);
+        vector<Individual> offspring = recombine(parents, sol);
+        mutate(offspring);
+        select_individuals(offspring, Population);
     }
+    return greedy(Population[0].rectArray, sol);
 }
-
-
-void sort_by_area(vector<Rectangle>& rectangles) {
-    sort(rectangles.begin(), rectangles.end(), [](const Rectangle& a, const Rectangle& b) {
-        if (a.p * a.q != b.p * b.q) return a.p * a.q > b.p * b.q;
-        return a.q > b.q;
-    });
-}
-
-
-void set_mh_parameters(){
-    K = 68;
-    S = 2;
-}
-
-
-int metaheuristic(vector<Rectangle>& rectangles, vector<Position>& sol) {
-    set_mh_parameters();
-    sort_by_area(rectangles);
-    add_rectangle_id(rectangles);
-    vector<Solution> population = generate_initial_population(rectangles, sol);
-    sort_by_fitness(population);
-    for (int i = 0; i < ITER_MAX; ++i) {
-        vector<Solution> parents = select_parents(population);
-        vector<Solution> offsprings = recombine(parents, sol);
-        mutate(offsprings);
-        select_individuals(population, offsprings);
-    }
-    return greedy(population[0].solution, sol);
-}
-
 
 
 int main(int agrc, char** argv) {
-    int n_units, p, q;
     ifstream input;
     input.open(argv[1]);
     input >> W >> N;
+    vector<Rectangle> Rectangles;
+    int nUnits, p, q;
     L_MAX = 0;
-    vector<Rectangle> rectangles(N);
-    while (input >> n_units) {
+    while (input >> nUnits) {
         input >> p >> q;
-        for(int n = 0; n < n_units; ++n){
-            rectangles.push_back(Rectangle{UNDEF, p, q});
+        for(int n = 0; n < nUnits; ++n){
+            Rectangles.push_back(Rectangle{UNDEF, p, q}); // We'll define the id later
         }
-        L_MAX += q * n_units;
+        L_MAX += q * nUnits;
     }
     input.close();
-    clock_t st = clock();
+    clock_t start_time = clock();
     vector<Position> sol(N);
-    write_solution(argv[2], metaheuristic(rectangles, sol), sol, st);
+    write_solution(argv[2], genetic_metaheuristic(Rectangles, sol), sol, start_time);
 }
